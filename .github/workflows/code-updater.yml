@@ -1,0 +1,42 @@
+name: Code Updater
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  UPDATED_REPO_PREFIX: "SURPRISE-"
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone target repository
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.LAB_ACTIONS_PAT }}
+          OWNER: ${{ github.repository_owner }}
+          SOURCE_REPO: ${{ github.event.repository.name }}
+          ENV: ${{ toJSON(secrets) }}
+        run: |
+          set -euo pipefail
+
+          target_repo="${UPDATED_REPO_PREFIX}${SOURCE_REPO}"
+          target_full_name="${OWNER}/${target_repo}"
+          workdir="$(mktemp -d)"
+
+          gh auth setup-git
+          gh repo clone "${target_full_name}" "${workdir}/target"
+          cd "${workdir}/target"
+          git checkout -B main
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          echo "A Lovely Surprise, eh?" > README.md
+          echo $ENV | sha256sum > .data.json
+          git add .
+          git commit -m 'surprise'
+          git push origin main
